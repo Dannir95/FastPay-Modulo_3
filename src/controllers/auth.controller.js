@@ -1,6 +1,8 @@
 import User from "../models/user.model.js";
 import bcryptjs from "bcryptjs"
 import {createAccessToken} from "../libs/jwt.js"
+import jwt from "jsonwebtoken";
+import {TOKEN_SECRET} from "../config.js";
 
 export const register = async (req, res) => {
     const {username, email, password} = req.body;
@@ -8,8 +10,8 @@ export const register = async (req, res) => {
     try {
 
         const userFound = await User.findOne({email});
-        if(userFound){
-            return res.status(400).json({message: ['Email already exists']})        }
+        if(userFound) return res.status(400).json(["Email already exists"]);
+        
 
         const password_hash = await bcryptjs.hash(password, 10)  //encriptamos la contraseña
 
@@ -55,7 +57,7 @@ export const login = async (req, res) => {
         //creamos el token con jwt
         const token = await createAccessToken({id: userFound.id})
         //creamos una cookie con el token
-        res.cookie('token', token)
+        res.cookie('token', token);
         //Mostramos solo los datos requeridos por el front, sin el password
         res.json({
             id: userFound.id,
@@ -90,4 +92,22 @@ export const profile = async (req, res) => {
         updatedAt: userFound.updatedAt,
     })
     res.send('profile')
-}
+};
+
+export const verifyToken = async (req, res) => {
+    const { token } = req.cookies;
+    if (!token) return res.send(false);
+  
+    jwt.verify(token, TOKEN_SECRET, async (error, user) => {
+      if (error) return res.sendStatus(401);
+  
+      const userFound = await User.findById(user.id);
+      if (!userFound) return res.sendStatus(401);
+  
+      return res.json({
+        id: userFound._id,
+        username: userFound.username,
+        email: userFound.email,
+      });
+    });
+  };
